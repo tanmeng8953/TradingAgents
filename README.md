@@ -175,6 +175,47 @@ python -m cli.main     # alternative: run directly from source
 ```
 You will see a screen where you can select your desired tickers, analysis date, LLM provider, research depth, and more.
 
+### Local Web Service
+
+Install the local Web dependencies with Python 3.11:
+
+```bash
+uv sync --python 3.11 --extra dev --extra web
+```
+
+Start the research-only service on the local Mac:
+
+```bash
+uv run tradingagents web --host 127.0.0.1 --port 8502
+```
+
+Open `http://127.0.0.1:8502`. The page can create analyses, show stage
+progress, reopen run history, and display analyst reports, debates, trader
+proposals, risk conclusions, and the final portfolio rating.
+
+The versioned API is:
+
+- `GET /health`
+- `POST /api/v1/runs`
+- `GET /api/v1/runs`
+- `GET /api/v1/runs/{run_id}`
+
+Run records are stored under `~/.tradingagents/runs/`. Credentials, brokerage
+accounts, and positions are removed from records and logs. This service never
+connects to a broker or places orders.
+
+On this Mac, the user LaunchAgent can be managed with:
+
+```bash
+./scripts/mac_install_web_launchd.sh install
+./scripts/mac_install_web_launchd.sh status
+./scripts/mac_install_web_launchd.sh uninstall
+```
+
+Installation stops when less than 5 GiB is free and never deletes user files.
+The default model route is the AI Workbench 5090 OpenAI-compatible endpoint.
+Cloud routing requires explicit confirmation in each request.
+
 ### Markets and tickers
 
 TradingAgents works with any market Yahoo Finance covers, using the exchange-suffixed ticker. Company identity and the alpha benchmark resolve automatically per market.

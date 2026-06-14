@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TradingAgents Local Research Console</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1012;
+      --surface: #11191c;
+      --surface-2: #172125;
+      --border: #27373d;
+      --text: #edf5f2;
+      --muted: #8ea39d;
+      --accent: #42d392;
+      --cyan: #55c7dd;
+      --warning: #f2c46d;
+      --danger: #ef7b7b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input, select { font: inherit; }
+    .topbar {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--border);
+      background: #0d1416;
+    }
+    .brand { font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+    .status-line { display: flex; gap: 18px; color: var(--muted); font-size: 12px; }
+    .status-line strong { color: var(--accent); font-weight: 600; }
+    .shell { display: grid; grid-template-columns: 330px 1fr; min-height: calc(100vh - 96px); }
+    aside { border-right: 1px solid var(--border); padding: 24px; background: #0e1517; }
+    main { padding: 28px 32px 48px; min-width: 0; }
+    h1, h2, h3, p { margin-top: 0; }
+    h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    label { display: block; margin: 14px 0 6px; color: #c9d6d2; font-size: 12px; font-weight: 600; }
+    input, select {
+      width: 100%;
+      padding: 10px 11px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px #55c7dd22; }
+    fieldset { margin: 14px 0 0; padding: 0; border: 0; }
+    legend { margin-bottom: 7px; color: #c9d6d2; font-size: 12px; font-weight: 600; }
+    .analyst-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .analyst-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .analyst-option:has(input:checked) {
+      border-color: #42d39288;
+      background: #42d39212;
+      color: var(--text);
+    }
+    .analyst-option input {
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      accent-color: var(--accent);
+      box-shadow: none;
+    }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+    .primary {
+      width: 100%;
+      margin-top: 18px;
+      padding: 11px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #062216;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    .primary:disabled { opacity: .55; cursor: wait; }
+    .history { margin-top: 28px; border-top: 1px solid var(--border); padding-top: 20px; }
+    .run-row {
+      width: 100%;
+      padding: 12px 0;
+      color: var(--text);
+      text-align: left;
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid #1d2a2e;
+      cursor: pointer;
+    }
+    .run-row small { display: block; color: var(--muted); }
+    .run-header { display: flex; justify-content: space-between; gap: 20px; align-items: start; }
+    .run-header h1 { margin-bottom: 5px; font-size: 28px; letter-spacing: -.03em; }
+    .state { color: var(--warning); font-weight: 700; }
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1px;
+      margin: 28px 0 24px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--border);
+    }
+    .stage { padding: 13px; background: var(--surface); color: var(--muted); }
+    .stage strong { display: block; color: var(--text); font-size: 12px; }
+    .stage.running { box-shadow: inset 0 -2px var(--cyan); }
+    .stage.completed { box-shadow: inset 0 -2px var(--accent); }
+    .tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--border); }
+    .tab {
+      padding: 12px 0;
+      color: var(--muted);
+      background: transparent;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+    }
+    .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+    .content { padding-top: 24px; }
+    .summary {
+      display: grid;
+      grid-template-columns: minmax(220px, .7fr) minmax(360px, 1.3fr);
+      gap: 24px;
+    }
+    .panel { padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+    .metric { font-size: 34px; font-weight: 800; color: var(--accent); }
+    .report { white-space: pre-wrap; color: #cedbd7; }
+    .empty { color: var(--muted); padding: 24px 0; }
+    .error { color: var(--danger); }
+    footer {
+      height: 32px;
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      background: #0d1416;
+      font-size: 12px;
+    }
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--border); }
+      .timeline { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: 1fr; }
+      .status-line { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">TradingAgents Local Research Console</div>
+    <div class="status-line"><span><strong>Local service</strong> ready</span><span>5090 route checked per run</span><span>Paper-only boundary</span></div>
+  </header>
+  <div class="shell">
+    <aside>
+      <h2>New analysis</h2>
+      <form id="run-form">
+        <div class="form-grid">
+          <div><label for="ticker">Ticker</label><input id="ticker" name="ticker" value="AAPL" required></div>
+          <div><label for="analysis_date">Analysis date</label><input id="analysis_date" name="analysis_date" type="date" required></div>
+        </div>
+        <fieldset>
+          <legend>Analysts</legend>
+          <div class="analyst-grid">
+            <label class="analyst-option"><input name="analysts" type="checkbox" value="market" checked>Market</label>
+            <label class="analyst-option"><input name="analysts" type="checkbox" value="social" checked>Sentiment</label>
+            <label class="analyst-option"><input name="analysts" type="checkbox" value="news" checked>News</label>
+            <label class="analyst-option"><input name="analysts" type="checkbox" value="fundamentals" checked>Fundamentals</label>
+          </div>
+        </fieldset>
+        <label for="model_route">Model route</label>
+        <select id="model_route" name="model_route">
+          <option value="local_5090">5090 local OpenAI-compatible</option>
+          <option value="cloud">Cloud provider (manual confirmation)</option>
+        </select>
+        <div class="form-grid">
+          <div><label for="quick_think_llm">Quick model</label><input id="quick_think_llm" name="quick_think_llm" placeholder="Configured default"></div>
+          <div><label for="deep_think_llm">Deep model</label><input id="deep_think_llm" name="deep_think_llm" placeholder="Configured default"></div>
+        </div>
+        <label for="debate_rounds">Debate depth</label>
+        <select id="debate_rounds" name="debate_rounds"><option value="1">1 round</option><option value="2">2 rounds</option><option value="3">3 rounds</option></select>
+        <button class="primary" type="submit">Run analysis</button>
+        <p id="form-status" class="empty"></p>
+      </form>
+      <section class="history">
+        <h2>Recent runs</h2>
+        <div id="run-history" class="empty">No runs yet.</div>
+      </section>
+    </aside>
+    <main>
+      <div class="run-header">
+        <div><h1 id="run-title">Select or create a run</h1><p id="run-subtitle" class="empty">Structured multi-agent research with deterministic execution boundaries.</p></div>
+        <div id="run-state" class="state">Idle</div>
+      </div>
+      <div id="timeline" class="timeline"></div>
+      <nav class="tabs" aria-label="Run reports">
+        <button class="tab active">Overview</button><button class="tab">Analysts</button><button class="tab">Bull vs Bear</button><button class="tab">Trader</button><button class="tab">Risk</button><button class="tab">Final decision</button>
+      </nav>
+      <section class="content">
+        <div class="summary">
+          <div class="panel"><h2>Final rating</h2><div id="final-rating" class="metric">Pending</div><p id="trader-action" class="empty">Trader action: Pending</p></div>
+          <div class="panel"><h2>Research result</h2><div id="report" class="report empty">Run details will appear here.</div></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <footer>Research only. Broker execution is handled by the Personal AI Workbench safety layer.</footer>
+  <script>
+    const stageNames = {analysts: "Analysts", research: "Research debate", trader: "Trader", risk: "Risk", portfolio_manager: "Portfolio Manager"};
+    let selectedRunId = null;
+    const today = new Date().toISOString().slice(0, 10);
+    document.querySelector("#analysis_date").value = today;
+
+    function renderTimeline(progress = {}) {
+      const stages = progress.stages || {};
+      document.querySelector("#timeline").innerHTML = Object.entries(stageNames).map(([key, label]) =>
+        `<div class="stage ${stages[key] || "pending"}"><strong>${label}</strong>${stages[key] || "pending"}</div>`
+      ).join("");
+    }
+
+    function renderRun(run) {
+      selectedRunId = run.run_id;
+      document.querySelector("#run-title").textContent = run.request.ticker;
+      document.querySelector("#run-subtitle").textContent = `${run.request.analysis_date} · ${run.request.model_route} · ${run.request.analysts.join(", ")}`;
+      document.querySelector("#run-state").textContent = run.status;
+      renderTimeline(run.progress);
+      document.querySelector("#final-rating").textContent = run.result?.portfolio_decision?.rating || "Pending";
+      document.querySelector("#trader-action").textContent = `Trader action: ${run.result?.trader_proposal?.action || "Pending"}`;
+      const report = run.result?.portfolio_decision?.investment_thesis || run.error || "Analysis is queued or running.";
+      const reportNode = document.querySelector("#report");
+      reportNode.textContent = report;
+      reportNode.className = run.error ? "report error" : "report";
+    }
+
+    async function refreshRuns() {
+      const response = await fetch("/api/v1/runs");
+      const {runs} = await response.json();
+      const history = document.querySelector("#run-history");
+      history.innerHTML = runs.length ? runs.map(run =>
+        `<button class="run-row" data-run-id="${run.run_id}"><strong>${run.request.ticker}</strong><small>${run.status} · ${run.request.analysis_date}</small></button>`
+      ).join("") : "No runs yet.";
+      history.querySelectorAll("[data-run-id]").forEach(button => button.addEventListener("click", async () => {
+        const detail = await fetch(`/api/v1/runs/${button.dataset.runId}`);
+        renderRun(await detail.json());
+      }));
+      if (selectedRunId) {
+        const selected = runs.find(run => run.run_id === selectedRunId);
+        if (selected) renderRun(selected);
+      }
+    }
+
+    document.querySelector("#run-form").addEventListener("submit", async event => {
+      event.preventDefault();
+      const submit = event.currentTarget.querySelector("button[type=submit]");
+      submit.disabled = true;
+      const route = document.querySelector("#model_route").value;
+      const payload = {
+        ticker: document.querySelector("#ticker").value,
+        analysis_date: document.querySelector("#analysis_date").value,
+        analysts: [...document.querySelectorAll('input[name="analysts"]:checked')].map(input => input.value),
+        model_route: route,
+        quick_think_llm: document.querySelector("#quick_think_llm").value,
+        deep_think_llm: document.querySelector("#deep_think_llm").value,
+        debate_rounds: Number(document.querySelector("#debate_rounds").value),
+        cloud_confirmed: route === "cloud" ? window.confirm("This sends public research context to the selected cloud model. Continue?") : false
+      };
+      if (route === "cloud" && !payload.cloud_confirmed) { submit.disabled = false; return; }
+      const response = await fetch("/api/v1/runs", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)});
+      const body = await response.json();
+      document.querySelector("#form-status").textContent = response.ok ? "Run queued." : (body.detail || "Unable to create run.");
+      if (response.ok) renderRun(body);
+      submit.disabled = false;
+      await refreshRuns();
+    });
+
+    renderTimeline();
+    refreshRuns();
+    setInterval(refreshRuns, 3000);
+  </script>
+</body>
+</html>

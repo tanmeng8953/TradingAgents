@@ -1318,5 +1318,22 @@ def analyze(
     run_analysis(checkpoint=checkpoint)
 
 
+@app.command()
+def web(
+    host: str = typer.Option(
+        "127.0.0.1",
+        "--host",
+        help="Bind address. Keep 127.0.0.1 unless you have an authenticated proxy.",
+    ),
+    port: int = typer.Option(8502, "--port", min=1, max=65535),
+):
+    """Start the local-only TradingAgents research console."""
+    import uvicorn
+
+    from tradingagents.web import create_app
+
+    uvicorn.run(create_app(), host=host, port=port)
+
+
 if __name__ == "__main__":
     app()
