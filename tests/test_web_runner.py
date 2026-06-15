@@ -160,6 +160,33 @@ def test_local_5090_settings_can_be_loaded_from_workbench_env(tmp_path, monkeypa
 
 
 @pytest.mark.unit
+def test_local_5090_settings_follow_workbench_35b_profile(tmp_path, monkeypatch):
+    env_file = tmp_path / "workbench.env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "AI_WORKBENCH_LLM_MODE=local_5090_35b",
+                "AI_WORKBENCH_LOCAL_LLM_BASE_URL=http://100.64.0.10:8001/v1",
+                "AI_WORKBENCH_LOCAL_LLM_MODEL=qwen-27b",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TRADINGAGENTS_WORKBENCH_ENV_FILE", str(env_file))
+    monkeypatch.delenv("TRADINGAGENTS_LOCAL_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("TRADINGAGENTS_LLM_BACKEND_URL", raising=False)
+    monkeypatch.delenv("TRADINGAGENTS_LOCAL_MODEL", raising=False)
+
+    resolved = resolve_local_model_settings({})
+
+    assert resolved == {
+        "backend_url": "http://100.64.0.10:8002/v1",
+        "quick_think_llm": "qwen3.6-35b-a3b-mtp-gguf",
+        "deep_think_llm": "qwen3.6-35b-a3b-mtp-gguf",
+    }
+
+
+@pytest.mark.unit
 def test_local_model_readiness_reports_timeout_without_leaking_credentials(monkeypatch):
     monkeypatch.setenv("TRADINGAGENTS_LOCAL_LLM_BASE_URL", "http://100.64.0.10:8001/v1")
     monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "must-not-leak")
@@ -201,3 +228,53 @@ def test_analysis_engine_stops_before_graph_when_local_model_is_unavailable(
             },
             lambda *_args: None,
         )
+
+
+@pytest.mark.unit
+def test_local_analysis_limits_stock_rows_for_8192_context_model(
+    tmp_path,
+    monkeypatch,
+):
+    captured = {}
+
+    class CapturingGraph:
+        def __init__(self, *, selected_analysts, config):
+            captured["selected_analysts"] = selected_analysts
+            captured["config"] = config
+
+        def propagate(self, ticker, analysis_date):
+            captured["ticker"] = ticker
+            captured["analysis_date"] = analysis_date
+            return FINAL_STATE, "Buy"
+
+    monkeypatch.setattr(
+        runner,
+        "local_model_readiness",
+        lambda _request: {
+            "status": "ready",
+            "reachable": True,
+            "message": "ready",
+        },
+    )
+    monkeypatch.setattr(
+        "tradingagents.graph.trading_graph.TradingAgentsGraph",
+        CapturingGraph,
+    )
+    engine = runner.TradingAgentsAnalysisEngine(tmp_path)
+
+    engine.run(
+        {
+            "ticker": "AAPL",
+            "analysis_date": "2026-06-12",
+            "analysts": ["market"],
+            "model_route": "local_5090",
+            "output_language": "Chinese",
+        },
+        lambda *_args: None,
+    )
+
+    assert captured["config"]["stock_data_output_rows"] == 50
+    assert captured["config"]["indicator_output_rows"] == 3
+    assert captured["config"]["fundamental_statement_output_rows"] == 12
+    assert captured["config"]["fundamental_statement_output_periods"] == 3
+    assert captured["config"]["compact_prompts"] is True

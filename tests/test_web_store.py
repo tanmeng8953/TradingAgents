@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from langchain_core.messages import AIMessage
 
 from tradingagents.web.store import RunStore
 
@@ -43,3 +44,16 @@ def test_run_store_lists_newest_first(tmp_path):
     runs = store.list()
 
     assert [run["run_id"] for run in runs] == [second["run_id"], first["run_id"]]
+
+
+@pytest.mark.unit
+def test_run_store_serializes_langchain_messages(tmp_path):
+    store = RunStore(tmp_path)
+    created = store.create({"ticker": "AAPL", "analysis_date": "2026-06-12"})
+
+    updated = store.update(
+        created["run_id"],
+        reports={"debate": AIMessage(content="Bull case.")},
+    )
+
+    assert updated["reports"]["debate"]["content"] == "Bull case."

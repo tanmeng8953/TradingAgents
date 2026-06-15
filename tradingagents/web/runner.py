@@ -113,15 +113,31 @@ def resolve_local_model_settings(request: dict[str, Any]) -> dict[str, str]:
     if workbench_env_file:
         workbench_values = dotenv_values(workbench_env_file)
 
+    workbench_mode = str(workbench_values.get("AI_WORKBENCH_LLM_MODE") or "").strip()
+    workbench_backend_url = str(
+        workbench_values.get("AI_WORKBENCH_LOCAL_LLM_BASE_URL") or ""
+    ).strip()
+    workbench_model = str(
+        workbench_values.get("AI_WORKBENCH_LOCAL_LLM_MODEL") or ""
+    ).strip()
+    if workbench_mode == "local_5090_35b":
+        workbench_backend_url = str(
+            workbench_values.get("AI_WORKBENCH_LOCAL_LLM_35B_BASE_URL") or ""
+        ).strip() or workbench_backend_url.replace(":8001", ":8002", 1)
+        workbench_model = str(
+            workbench_values.get("AI_WORKBENCH_LOCAL_LLM_35B_MODEL")
+            or "qwen3.6-35b-a3b-mtp-gguf"
+        ).strip()
+
     backend_url = (
         str(request.get("backend_url") or "").strip()
         or os.getenv("TRADINGAGENTS_LOCAL_LLM_BASE_URL", "").strip()
         or os.getenv("TRADINGAGENTS_LLM_BACKEND_URL", "").strip()
-        or str(workbench_values.get("AI_WORKBENCH_LOCAL_LLM_BASE_URL") or "").strip()
+        or workbench_backend_url
     )
     default_model = (
         os.getenv("TRADINGAGENTS_LOCAL_MODEL", "").strip()
-        or str(workbench_values.get("AI_WORKBENCH_LOCAL_LLM_MODEL") or "").strip()
+        or workbench_model
     )
     quick_model = (
         str(request.get("quick_think_llm") or "").strip()
@@ -245,6 +261,11 @@ class TradingAgentsAnalysisEngine:
         if route == "local_5090":
             config["quick_think_llm"] = local_settings["quick_think_llm"]
             config["deep_think_llm"] = local_settings["deep_think_llm"]
+            config["stock_data_output_rows"] = 50
+            config["indicator_output_rows"] = 3
+            config["fundamental_statement_output_rows"] = 12
+            config["fundamental_statement_output_periods"] = 3
+            config["compact_prompts"] = True
         else:
             config["quick_think_llm"] = (
                 request.get("quick_think_llm") or config["quick_think_llm"]

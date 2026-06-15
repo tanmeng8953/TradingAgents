@@ -95,6 +95,10 @@ def test_home_page_exposes_primary_research_workflow(web_client):
     assert "Analysts" in response.text
     assert "Bull vs Bear" in response.text
     assert "Final decision" in response.text
+    assert "run.reports?.final_trade_decision" in response.text
+    assert "reportForTab" in response.text
+    assert "No standalone analyst reports were persisted." in response.text
+    assert 'querySelectorAll(".tab")' in response.text
     assert "Research only" in response.text
 
 

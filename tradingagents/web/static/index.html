@@ -226,6 +226,8 @@
   <script>
     const stageNames = {analysts: "Analysts", research: "Research debate", trader: "Trader", risk: "Risk", portfolio_manager: "Portfolio Manager"};
     let selectedRunId = null;
+    let selectedRun = null;
+    let activeTab = "Overview";
     let localModelReadiness = null;
     const today = new Date().toISOString().slice(0, 10);
     document.querySelector("#analysis_date").value = today;
@@ -263,19 +265,73 @@
       return run.error || "";
     }
 
+    function formatReport(value) {
+      if (!value) return "";
+      if (typeof value === "string") return value;
+      if (Array.isArray(value)) return value.map(formatReport).filter(Boolean).join("\n\n");
+      if (typeof value === "object") {
+        return Object.entries(value)
+          .map(([key, item]) => {
+            const text = formatReport(item);
+            return text ? `${key.replaceAll("_", " ")}\n${text}` : "";
+          })
+          .filter(Boolean)
+          .join("\n\n");
+      }
+      return String(value);
+    }
+
+    function reportForTab(run, tabName) {
+      const reports = run.reports || {};
+      if (tabName === "Analysts") {
+        const analystReports = [
+          ["Market", reports.market_report],
+          ["Sentiment", reports.sentiment_report],
+          ["News", reports.news_report],
+          ["Fundamentals", reports.fundamentals_report]
+        ].map(([label, value]) => value ? `${label}\n${formatReport(value)}` : "").filter(Boolean).join("\n\n");
+        if (analystReports) return analystReports;
+        const synthesis = formatReport(reports.investment_debate_state)
+          || formatReport(reports.investment_plan);
+        return synthesis
+          ? `No standalone analyst reports were persisted. Showing the research synthesis.\n\n${synthesis}`
+          : "";
+      }
+      if (tabName === "Bull vs Bear") return formatReport(reports.investment_debate_state);
+      if (tabName === "Trader") return formatReport(reports.trader_investment_plan);
+      if (tabName === "Risk") {
+        return [reports.risk_debate_state, reports.investment_plan]
+          .map(formatReport).filter(Boolean).join("\n\n");
+      }
+      if (tabName === "Final decision") return formatReport(run.reports?.final_trade_decision);
+      return run.result?.portfolio_decision?.investment_thesis
+        || formatReport(run.reports?.final_trade_decision)
+        || run.result?.risk_notice
+        || run.result?.signal
+        || "";
+    }
+
+    function renderActiveReport() {
+      if (!selectedRun) return;
+      const runError = friendlyRunError(selectedRun);
+      const report = reportForTab(selectedRun, activeTab)
+        || runError
+        || (selectedRun.status === "succeeded" ? "Analysis completed." : "Analysis is queued or running.");
+      const reportNode = document.querySelector("#report");
+      reportNode.textContent = report;
+      reportNode.className = runError ? "report error" : "report";
+    }
+
     function renderRun(run) {
       selectedRunId = run.run_id;
+      selectedRun = run;
       document.querySelector("#run-title").textContent = run.request.ticker;
       document.querySelector("#run-subtitle").textContent = `${run.request.analysis_date} · ${run.request.model_route} · ${run.request.analysts.join(", ")}`;
       document.querySelector("#run-state").textContent = run.status;
       renderTimeline(run.progress);
       document.querySelector("#final-rating").textContent = run.result?.portfolio_decision?.rating || "Pending";
       document.querySelector("#trader-action").textContent = `Trader action: ${run.result?.trader_proposal?.action || "Pending"}`;
-      const runError = friendlyRunError(run);
-      const report = run.result?.portfolio_decision?.investment_thesis || runError || "Analysis is queued or running.";
-      const reportNode = document.querySelector("#report");
-      reportNode.textContent = report;
-      reportNode.className = runError ? "report error" : "report";
+      renderActiveReport();
     }
 
     async function refreshRuns() {
@@ -326,6 +382,12 @@
       submit.disabled = false;
       await refreshRuns();
     });
+
+    document.querySelectorAll(".tab").forEach(button => button.addEventListener("click", () => {
+      activeTab = button.textContent.trim();
+      document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab === button));
+      renderActiveReport();
+    }));
 
     renderTimeline();
     refreshReadiness();

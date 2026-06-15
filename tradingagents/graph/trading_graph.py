@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Tuple, List, Optional
 
 import yfinance as yf
+from langchain_core.messages import BaseMessage
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,39 @@ from .setup import GraphSetup
 from .propagation import Propagator
 from .reflection import Reflector
 from .signal_processing import SignalProcessor
+
+
+def _json_default(value):
+    if isinstance(value, BaseMessage):
+        return value.model_dump(mode="json")
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def _state_content_score(value):
+    if isinstance(value, str):
+        return len(value.strip())
+    if isinstance(value, BaseMessage):
+        return _state_content_score(value.model_dump(mode="json"))
+    if isinstance(value, dict):
+        return sum(_state_content_score(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return sum(_state_content_score(item) for item in value)
+    return 0
+
+
+_COMPLETED_STATE_KEYS = (
+    "company_of_interest",
+    "trade_date",
+    "market_report",
+    "sentiment_report",
+    "news_report",
+    "fundamentals_report",
+    "investment_debate_state",
+    "investment_plan",
+    "trader_investment_plan",
+    "risk_debate_state",
+    "final_trade_decision",
+)
 
 
 class TradingAgentsGraph:
@@ -388,7 +422,14 @@ class TradingAgentsGraph:
             tid = thread_id(company_name, str(trade_date))
             args.setdefault("config", {}).setdefault("configurable", {})["thread_id"] = tid
 
-        if self.debug:
+        final_state = self._completed_checkpoint_state(args)
+        if final_state is not None:
+            logger.info(
+                "Recovering completed terminal checkpoint for %s on %s",
+                company_name,
+                trade_date,
+            )
+        elif self.debug:
             trace = []
             for chunk in self.graph.stream(init_agent_state, **args):
                 if len(chunk["messages"]) == 0:
@@ -424,6 +465,33 @@ class TradingAgentsGraph:
             )
 
         return final_state, self.process_signal(final_state["final_trade_decision"])
+
+    def _completed_checkpoint_state(self, args):
+        if not self.config.get("checkpoint_enabled"):
+            return None
+        config = args.get("config", {})
+        snapshots = [self.graph.get_state(config)]
+        snapshots.extend(self.graph.get_state_history(config))
+        candidates = []
+        terminal_candidates = []
+        for snapshot in snapshots:
+            values = getattr(snapshot, "values", None)
+            if not isinstance(values, dict):
+                continue
+            if not all(key in values for key in _COMPLETED_STATE_KEYS):
+                continue
+            if not str(values.get("final_trade_decision") or "").strip():
+                continue
+            candidates.append(values)
+            metadata = getattr(snapshot, "metadata", {})
+            writes = metadata.get("writes") if isinstance(metadata, dict) else None
+            if isinstance(writes, dict) and "Portfolio Manager" in writes:
+                terminal_candidates.append(values)
+        if terminal_candidates:
+            return terminal_candidates[0]
+        if not candidates:
+            return None
+        return max(candidates, key=_state_content_score)
 
     def _log_state(self, trade_date, final_state):
         """Log the final state to a JSON file."""
@@ -465,7 +533,12 @@ class TradingAgentsGraph:
 
         log_path = directory / f"full_states_log_{trade_date}.json"
         with open(log_path, "w", encoding="utf-8") as f:
-            json.dump(self.log_states_dict[str(trade_date)], f, indent=4)
+            json.dump(
+                self.log_states_dict[str(trade_date)],
+                f,
+                indent=4,
+                default=_json_default,
+            )
 
     def process_signal(self, full_signal):
         """Process a signal to extract the core decision."""

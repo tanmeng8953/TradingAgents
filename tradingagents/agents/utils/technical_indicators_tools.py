@@ -1,6 +1,40 @@
+import re
+
 from langchain_core.tools import tool
 from typing import Annotated
+from tradingagents.dataflows.config import get_config
 from tradingagents.dataflows.interface import route_to_vendor
+
+
+_DATED_VALUE = re.compile(r"^\d{4}-\d{2}-\d{2}:")
+
+
+def _limit_indicator_values(payload: str, max_rows: int | None) -> str:
+    if not max_rows or max_rows < 1:
+        return payload
+
+    lines = payload.splitlines()
+    dated_lines = [line for line in lines if _DATED_VALUE.match(line)]
+    if len(dated_lines) <= max_rows:
+        return payload
+
+    first_data_index = next(
+        index for index, line in enumerate(lines) if _DATED_VALUE.match(line)
+    )
+    prefix = "\n".join(lines[:first_data_index]).rstrip()
+    recent = sorted(dated_lines, reverse=True)[:max_rows]
+    return "\n".join(
+        [
+            prefix,
+            "",
+            (
+                f"# Showing the {max_rows} most recent values out of "
+                f"{len(dated_lines)} to fit the configured model context."
+            ),
+            *recent,
+        ]
+    ).strip()
+
 
 @tool
 def get_indicators(
@@ -26,7 +60,19 @@ def get_indicators(
     results = []
     for ind in indicators:
         try:
-            results.append(route_to_vendor("get_indicators", symbol, ind, curr_date, look_back_days))
+            payload = route_to_vendor(
+                "get_indicators",
+                symbol,
+                ind,
+                curr_date,
+                look_back_days,
+            )
+            results.append(
+                _limit_indicator_values(
+                    payload,
+                    get_config().get("indicator_output_rows"),
+                )
+            )
         except ValueError as e:
             results.append(str(e))
     return "\n\n".join(results)

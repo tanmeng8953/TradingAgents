@@ -9,6 +9,18 @@ from tradingagents.agents.utils.agent_utils import (
 from tradingagents.dataflows.config import get_config
 
 
+def build_compact_market_system_message() -> str:
+    return (
+        """You are a technical market analyst. Use tools in this order:
+1. Call get_stock_data.
+2. Call get_indicators for at most six diverse, non-redundant indicators chosen only from: close_50_sma, close_200_sma, close_10_ema, macd, macds, macdh, rsi, boll, boll_ub, boll_lb, atr, vwma.
+3. Before the final report, call get_verified_market_snapshot.
+
+The verified snapshot is the source of truth for exact OHLCV, price levels, and indicator values. Flag conflicts instead of reconciling them yourself. Do not invent historical validation, support or resistance reactions, or percentage moves without dated tool evidence. Return a detailed but concise, actionable trend report and end with a Markdown table of the key evidence."""
+        + get_language_instruction()
+    )
+
+
 def create_market_analyst(llm):
 
     def market_analyst_node(state):
@@ -54,6 +66,8 @@ Write a very detailed and nuanced report of the trends you observe. Provide spec
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
             + get_language_instruction()
         )
+        if get_config().get("compact_prompts"):
+            system_message = build_compact_market_system_message()
 
         prompt = ChatPromptTemplate.from_messages(
             [

@@ -16,6 +16,9 @@ def utc_now() -> str:
 
 
 def _sanitize(value: Any) -> Any:
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        return _sanitize(model_dump(mode="json"))
     if isinstance(value, dict):
         return {
             str(key): _sanitize(item)

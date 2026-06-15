@@ -87,6 +87,16 @@ DEFAULT_CONFIG = _apply_env_overrides({
     "news_article_limit": 20,             # max articles per ticker (ticker-news)
     "global_news_article_limit": 10,      # max articles for global/macro news
     "global_news_lookback_days": 7,       # macro news lookback window
+    # Optional cap on CSV rows returned to the market analyst. Full data remains
+    # cached for indicators; this only limits text inserted into an LLM prompt.
+    "stock_data_output_rows": None,
+    # Optional cap on each technical-indicator series returned to the analyst.
+    "indicator_output_rows": None,
+    # Optional local-context view for full financial statements.
+    "fundamental_statement_output_rows": None,
+    "fundamental_statement_output_periods": None,
+    # Use shorter agent instructions for local models with small context windows.
+    "compact_prompts": False,
     # Search queries used by get_global_news for macro headlines. Extend or
     # replace to broaden geographic / sector coverage.
     "global_news_queries": [
