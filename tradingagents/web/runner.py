@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import requests
 from dotenv import dotenv_values
 
 from tradingagents.default_config import DEFAULT_CONFIG
@@ -146,6 +147,75 @@ def resolve_local_model_settings(request: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def local_model_readiness(
+    request: dict[str, Any],
+    *,
+    request_get: Callable[..., Any] = requests.get,
+    timeout_seconds: float = 5.0,
+) -> dict[str, Any]:
+    settings = resolve_local_model_settings(request)
+    backend_url = settings["backend_url"].rstrip("/")
+    result = {
+        "status": "unconfigured",
+        "reachable": False,
+        "model_route": "local_5090",
+        "model": settings["quick_think_llm"],
+        "message": (
+            "Local 5090 model endpoint is not configured. Set "
+            "TRADINGAGENTS_LOCAL_LLM_BASE_URL."
+        ),
+    }
+    if not backend_url:
+        return result
+
+    headers = {}
+    api_key = os.getenv("OPENAI_COMPATIBLE_API_KEY", "").strip()
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    try:
+        response = request_get(
+            f"{backend_url}/models",
+            headers=headers,
+            timeout=timeout_seconds,
+        )
+        status_code = int(getattr(response, "status_code", 0))
+        if not 200 <= status_code < 300:
+            return {
+                **result,
+                "status": "unavailable",
+                "message": (
+                    "Configured 5090 model endpoint responded with "
+                    f"HTTP {status_code}."
+                ),
+            }
+    except requests.Timeout:
+        return {
+            **result,
+            "status": "unavailable",
+            "message": (
+                "Configured 5090 model endpoint did not respond within "
+                f"{timeout_seconds:g} seconds. Restore the 5090 service or "
+                "manually choose a cloud route."
+            ),
+        }
+    except requests.RequestException:
+        return {
+            **result,
+            "status": "unavailable",
+            "message": (
+                "Configured 5090 model endpoint is unreachable. Restore the "
+                "5090 service or manually choose a cloud route."
+            ),
+        }
+
+    return {
+        **result,
+        "status": "ready",
+        "reachable": True,
+        "message": "Configured 5090 model endpoint is ready.",
+    }
+
+
 class TradingAgentsAnalysisEngine:
     def __init__(self, output_dir: Path | str):
         self.output_dir = Path(output_dir)
@@ -155,20 +225,16 @@ class TradingAgentsAnalysisEngine:
         request: dict[str, Any],
         on_progress: Callable[[str, dict[str, Any]], None],
     ) -> tuple[dict[str, Any], str, dict[str, Any]]:
-        from tradingagents.graph.trading_graph import TradingAgentsGraph
-
         config = copy.deepcopy(DEFAULT_CONFIG)
         route = request.get("model_route", "local_5090")
         backend_url = str(request.get("backend_url") or "").strip()
 
         if route == "local_5090":
+            readiness = local_model_readiness(request)
+            if readiness["status"] != "ready":
+                raise RuntimeError(readiness["message"])
             local_settings = resolve_local_model_settings(request)
             backend_url = local_settings["backend_url"]
-            if not backend_url:
-                raise RuntimeError(
-                    "Local 5090 model endpoint is not configured. Set "
-                    "TRADINGAGENTS_LOCAL_LLM_BASE_URL."
-                )
             config["llm_provider"] = "openai_compatible"
         else:
             if not request.get("cloud_confirmed"):
@@ -193,6 +259,8 @@ class TradingAgentsAnalysisEngine:
         config["results_dir"] = str(self.output_dir / "logs")
         config["data_cache_dir"] = str(self.output_dir / "cache")
         config["memory_log_path"] = str(self.output_dir / "memory" / "trading_memory.md")
+
+        from tradingagents.graph.trading_graph import TradingAgentsGraph
 
         on_progress("analysts", {})
         graph = TradingAgentsGraph(

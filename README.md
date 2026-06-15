@@ -196,6 +196,7 @@ proposals, risk conclusions, and the final portfolio rating.
 The versioned API is:
 
 - `GET /health`
+- `GET /api/v1/readiness`
 - `POST /api/v1/runs`
 - `GET /api/v1/runs`
 - `GET /api/v1/runs/{run_id}`
@@ -215,6 +216,9 @@ On this Mac, the user LaunchAgent can be managed with:
 Installation stops when less than 5 GiB is free and never deletes user files.
 The default model route is the AI Workbench 5090 OpenAI-compatible endpoint.
 Cloud routing requires explicit confirmation in each request.
+The Web console checks the local model route before creating a run. If the
+configured 5090 endpoint is offline, it returns an actionable error in about
+five seconds instead of waiting for the model client's longer request timeout.
 
 ### Markets and tickers
 

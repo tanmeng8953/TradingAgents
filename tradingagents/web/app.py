@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field, model_validator
 
-from tradingagents.web.runner import ThreadedRunDispatcher
+from tradingagents.web.runner import ThreadedRunDispatcher, local_model_readiness
 from tradingagents.web.store import RunStore
 
 
@@ -49,9 +49,11 @@ def create_app(
     *,
     run_store: RunStore | None = None,
     dispatcher=None,
+    readiness_probe=None,
 ) -> FastAPI:
     store = run_store or RunStore(default_runs_dir())
     run_dispatcher = dispatcher or ThreadedRunDispatcher(store)
+    model_readiness_probe = readiness_probe or (lambda: local_model_readiness({}))
     app = FastAPI(title="TradingAgents Local Research Console")
     app.state.run_store = store
     app.state.dispatcher = run_dispatcher
@@ -64,6 +66,10 @@ def create_app(
             "broker_execution": False,
             "paper_only": True,
         }
+
+    @app.get("/api/v1/readiness")
+    def readiness():
+        return model_readiness_probe()
 
     @app.get("/", response_class=HTMLResponse)
     def home():

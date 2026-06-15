@@ -96,3 +96,35 @@ def test_home_page_exposes_primary_research_workflow(web_client):
     assert "Bull vs Bear" in response.text
     assert "Final decision" in response.text
     assert "Research only" in response.text
+
+
+@pytest.mark.unit
+def test_readiness_endpoint_reports_local_model_state(tmp_path):
+    expected = {
+        "status": "unavailable",
+        "reachable": False,
+        "model_route": "local_5090",
+        "message": "Configured 5090 endpoint is offline.",
+    }
+    app = create_app(
+        run_store=RunStore(tmp_path),
+        dispatcher=RecordingDispatcher(),
+        readiness_probe=lambda: expected,
+    )
+
+    response = TestClient(app).get("/api/v1/readiness")
+
+    assert response.status_code == 200
+    assert response.json() == expected
+
+
+@pytest.mark.unit
+def test_home_page_surfaces_model_readiness(web_client):
+    client, _ = web_client
+
+    response = client.get("/")
+
+    assert 'id="model-readiness"' in response.text
+    assert 'id="model-readiness-detail"' in response.text
+    assert 'fetch("/api/v1/readiness")' in response.text
+    assert "This run timed out before local model readiness checks were added." in response.text

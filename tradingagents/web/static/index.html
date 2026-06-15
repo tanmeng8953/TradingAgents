@@ -167,7 +167,7 @@
 <body>
   <header class="topbar">
     <div class="brand">TradingAgents Local Research Console</div>
-    <div class="status-line"><span><strong>Local service</strong> ready</span><span>5090 route checked per run</span><span>Paper-only boundary</span></div>
+    <div class="status-line"><span><strong>Local service</strong> ready</span><span><strong id="model-readiness">5090</strong> <span id="model-readiness-detail">checking...</span></span><span>Paper-only boundary</span></div>
   </header>
   <div class="shell">
     <aside>
@@ -226,14 +226,41 @@
   <script>
     const stageNames = {analysts: "Analysts", research: "Research debate", trader: "Trader", risk: "Risk", portfolio_manager: "Portfolio Manager"};
     let selectedRunId = null;
+    let localModelReadiness = null;
     const today = new Date().toISOString().slice(0, 10);
     document.querySelector("#analysis_date").value = today;
+
+    async function refreshReadiness() {
+      try {
+        const response = await fetch("/api/v1/readiness");
+        localModelReadiness = await response.json();
+      } catch (_error) {
+        localModelReadiness = {
+          status: "unavailable",
+          reachable: false,
+          message: "Unable to check the configured 5090 model endpoint."
+        };
+      }
+      const label = document.querySelector("#model-readiness");
+      const detail = document.querySelector("#model-readiness-detail");
+      label.textContent = localModelReadiness.status === "ready" ? "5090 ready" : "5090 unavailable";
+      label.style.color = localModelReadiness.status === "ready" ? "var(--accent)" : "var(--danger)";
+      detail.textContent = localModelReadiness.message;
+      return localModelReadiness;
+    }
 
     function renderTimeline(progress = {}) {
       const stages = progress.stages || {};
       document.querySelector("#timeline").innerHTML = Object.entries(stageNames).map(([key, label]) =>
         `<div class="stage ${stages[key] || "pending"}"><strong>${label}</strong>${stages[key] || "pending"}</div>`
       ).join("");
+    }
+
+    function friendlyRunError(run) {
+      if (run.error === "Request timed out." && run.request?.model_route === "local_5090") {
+        return "This run timed out before local model readiness checks were added. The configured 5090 endpoint did not respond; restore the 5090 service and start a new run.";
+      }
+      return run.error || "";
     }
 
     function renderRun(run) {
@@ -244,10 +271,11 @@
       renderTimeline(run.progress);
       document.querySelector("#final-rating").textContent = run.result?.portfolio_decision?.rating || "Pending";
       document.querySelector("#trader-action").textContent = `Trader action: ${run.result?.trader_proposal?.action || "Pending"}`;
-      const report = run.result?.portfolio_decision?.investment_thesis || run.error || "Analysis is queued or running.";
+      const runError = friendlyRunError(run);
+      const report = run.result?.portfolio_decision?.investment_thesis || runError || "Analysis is queued or running.";
       const reportNode = document.querySelector("#report");
       reportNode.textContent = report;
-      reportNode.className = run.error ? "report error" : "report";
+      reportNode.className = runError ? "report error" : "report";
     }
 
     async function refreshRuns() {
@@ -272,6 +300,14 @@
       const submit = event.currentTarget.querySelector("button[type=submit]");
       submit.disabled = true;
       const route = document.querySelector("#model_route").value;
+      if (route === "local_5090") {
+        const readiness = await refreshReadiness();
+        if (readiness.status !== "ready") {
+          document.querySelector("#form-status").textContent = readiness.message;
+          submit.disabled = false;
+          return;
+        }
+      }
       const payload = {
         ticker: document.querySelector("#ticker").value,
         analysis_date: document.querySelector("#analysis_date").value,
@@ -292,7 +328,9 @@
     });
 
     renderTimeline();
+    refreshReadiness();
     refreshRuns();
+    setInterval(refreshReadiness, 15000);
     setInterval(refreshRuns, 3000);
   </script>
 </body>

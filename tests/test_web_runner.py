@@ -1,5 +1,7 @@
 import pytest
+import requests
 
+from tradingagents.web import runner
 from tradingagents.web.runner import (
     build_structured_result,
     execute_run,
@@ -155,3 +157,47 @@ def test_local_5090_settings_can_be_loaded_from_workbench_env(tmp_path, monkeypa
         "quick_think_llm": "qwen-local",
         "deep_think_llm": "qwen-local",
     }
+
+
+@pytest.mark.unit
+def test_local_model_readiness_reports_timeout_without_leaking_credentials(monkeypatch):
+    monkeypatch.setenv("TRADINGAGENTS_LOCAL_LLM_BASE_URL", "http://100.64.0.10:8001/v1")
+    monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "must-not-leak")
+
+    def timeout_get(*_args, **_kwargs):
+        raise requests.Timeout("Bearer must-not-leak timed out")
+
+    readiness = runner.local_model_readiness({}, request_get=timeout_get, timeout_seconds=0.1)
+
+    assert readiness["status"] == "unavailable"
+    assert readiness["reachable"] is False
+    assert readiness["model_route"] == "local_5090"
+    assert "did not respond within" in readiness["message"]
+    assert "must-not-leak" not in str(readiness)
+
+
+@pytest.mark.unit
+def test_analysis_engine_stops_before_graph_when_local_model_is_unavailable(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        runner,
+        "local_model_readiness",
+        lambda _request: {
+            "status": "unavailable",
+            "reachable": False,
+            "message": "Configured 5090 endpoint is offline.",
+        },
+    )
+    engine = runner.TradingAgentsAnalysisEngine(tmp_path)
+
+    with pytest.raises(RuntimeError, match="Configured 5090 endpoint is offline"):
+        engine.run(
+            {
+                "ticker": "AAPL",
+                "analysis_date": "2026-06-15",
+                "model_route": "local_5090",
+            },
+            lambda *_args: None,
+        )
