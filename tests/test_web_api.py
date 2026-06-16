@@ -89,17 +89,17 @@ def test_home_page_exposes_primary_research_workflow(web_client):
     response = client.get("/")
 
     assert response.status_code == 200
-    assert "TradingAgents Local Research Console" in response.text
+    assert "TradingAgents 本地多智能体研究台" in response.text
     assert 'name="ticker"' in response.text
     assert 'name="model_route"' in response.text
-    assert "Analysts" in response.text
-    assert "Bull vs Bear" in response.text
-    assert "Final decision" in response.text
+    assert "分析师范围" in response.text
+    assert "多空辩论" in response.text
+    assert "最终决策" in response.text
     assert "run.reports?.final_trade_decision" in response.text
     assert "reportForTab" in response.text
-    assert "No standalone analyst reports were persisted." in response.text
+    assert "没有单独保存各分析师报告" in response.text
     assert 'querySelectorAll(".tab")' in response.text
-    assert "Research only" in response.text
+    assert "仅用于研究与归档" in response.text
 
 
 @pytest.mark.unit
@@ -131,4 +131,4 @@ def test_home_page_surfaces_model_readiness(web_client):
     assert 'id="model-readiness"' in response.text
     assert 'id="model-readiness-detail"' in response.text
     assert 'fetch("/api/v1/readiness")' in response.text
-    assert "This run timed out before local model readiness checks were added." in response.text
+    assert "这次运行发生在本地模型就绪检查加入之前" in response.text

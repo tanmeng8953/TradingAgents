@@ -1,236 +1,625 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-Hans">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TradingAgents Local Research Console</title>
+  <title>TradingAgents 本地多智能体研究台</title>
   <style>
     :root {
       color-scheme: dark;
-      --bg: #0b1012;
-      --surface: #11191c;
-      --surface-2: #172125;
-      --border: #27373d;
-      --text: #edf5f2;
-      --muted: #8ea39d;
-      --accent: #42d392;
-      --cyan: #55c7dd;
-      --warning: #f2c46d;
-      --danger: #ef7b7b;
+      --bg: #071012;
+      --bg-soft: #0c171a;
+      --surface: #111d21;
+      --surface-2: #16252a;
+      --surface-3: #1c3036;
+      --border: #294149;
+      --border-soft: #20343a;
+      --text: #effaf6;
+      --muted: #94aaa5;
+      --muted-2: #6f8580;
+      --accent: #48d597;
+      --accent-2: #7df1bd;
+      --cyan: #61d3e8;
+      --warning: #f0c774;
+      --danger: #ff8585;
+      --shadow: 0 24px 70px rgba(0, 0, 0, .32);
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       min-height: 100vh;
-      background: var(--bg);
+      background:
+        radial-gradient(circle at top left, rgba(72, 213, 151, .18), transparent 34rem),
+        radial-gradient(circle at 80% 0%, rgba(97, 211, 232, .12), transparent 32rem),
+        linear-gradient(180deg, #081113 0%, #05090a 100%);
       color: var(--text);
-      font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font: 14px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
     }
+
     button, input, select { font: inherit; }
+    button { transition: border-color .18s ease, background .18s ease, transform .18s ease, opacity .18s ease; }
+    button:hover { transform: translateY(-1px); }
+    h1, h2, h3, p { margin-top: 0; }
+
     .topbar {
-      height: 64px;
+      min-height: 76px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 28px;
-      border-bottom: 1px solid var(--border);
-      background: #0d1416;
+      gap: 22px;
+      padding: 16px 30px;
+      border-bottom: 1px solid rgba(125, 241, 189, .12);
+      background: rgba(7, 16, 18, .82);
+      backdrop-filter: blur(18px);
+      position: sticky;
+      top: 0;
+      z-index: 5;
     }
-    .brand { font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
-    .status-line { display: flex; gap: 18px; color: var(--muted); font-size: 12px; }
-    .status-line strong { color: var(--accent); font-weight: 600; }
-    .shell { display: grid; grid-template-columns: 330px 1fr; min-height: calc(100vh - 96px); }
-    aside { border-right: 1px solid var(--border); padding: 24px; background: #0e1517; }
-    main { padding: 28px 32px 48px; min-width: 0; }
-    h1, h2, h3, p { margin-top: 0; }
-    h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-    label { display: block; margin: 14px 0 6px; color: #c9d6d2; font-size: 12px; font-weight: 600; }
+
+    .brand-stack { min-width: 230px; }
+    .eyebrow {
+      margin-bottom: 2px;
+      color: var(--accent-2);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .brand {
+      font-size: 20px;
+      font-weight: 850;
+      letter-spacing: -.03em;
+    }
+    .brand-subtitle {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status-line {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 30px;
+      padding: 6px 10px;
+      border: 1px solid var(--border-soft);
+      border-radius: 999px;
+      background: rgba(17, 29, 33, .72);
+    }
+    .status-pill strong {
+      color: var(--accent);
+      font-weight: 800;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 18px rgba(72, 213, 151, .62);
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 340px minmax(0, 1fr);
+      gap: 0;
+      min-height: calc(100vh - 114px);
+    }
+
+    aside {
+      border-right: 1px solid rgba(125, 241, 189, .10);
+      padding: 24px;
+      background: rgba(8, 17, 19, .72);
+    }
+
+    main {
+      min-width: 0;
+      padding: 30px 34px 56px;
+    }
+
+    .section-title {
+      margin-bottom: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .side-card, .panel, .timeline, .run-header {
+      border: 1px solid rgba(125, 241, 189, .12);
+      background: linear-gradient(180deg, rgba(18, 31, 35, .92), rgba(13, 23, 26, .92));
+      box-shadow: var(--shadow);
+    }
+
+    .side-card {
+      padding: 18px;
+      border-radius: 18px;
+    }
+
+    label {
+      display: block;
+      margin: 13px 0 6px;
+      color: #cfe0dc;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
     input, select {
       width: 100%;
-      padding: 10px 11px;
+      min-height: 42px;
+      padding: 10px 12px;
       color: var(--text);
-      background: var(--surface);
+      background: rgba(8, 16, 18, .96);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 12px;
       outline: none;
     }
-    input:focus, select:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px #55c7dd22; }
+
+    input::placeholder { color: var(--muted-2); }
+    input:focus, select:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(97, 211, 232, .14);
+    }
+
     fieldset { margin: 14px 0 0; padding: 0; border: 0; }
-    legend { margin-bottom: 7px; color: #c9d6d2; font-size: 12px; font-weight: 600; }
-    .analyst-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    legend { margin-bottom: 8px; color: #cfe0dc; font-size: 12px; font-weight: 750; }
+
+    .analyst-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
     .analyst-option {
       display: flex;
       align-items: center;
       gap: 8px;
+      min-height: 40px;
       margin: 0;
       padding: 9px 10px;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface);
+      border-radius: 12px;
+      background: rgba(8, 16, 18, .82);
       color: var(--muted);
       cursor: pointer;
     }
+
     .analyst-option:has(input:checked) {
-      border-color: #42d39288;
-      background: #42d39212;
+      border-color: rgba(72, 213, 151, .72);
+      background: rgba(72, 213, 151, .12);
       color: var(--text);
     }
+
     .analyst-option input {
       width: 15px;
       height: 15px;
+      min-height: 15px;
       margin: 0;
       accent-color: var(--accent);
       box-shadow: none;
     }
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 10px;
+    }
+
     .primary {
       width: 100%;
+      min-height: 46px;
       margin-top: 18px;
-      padding: 11px;
+      padding: 12px;
       border: 0;
-      border-radius: 8px;
-      background: var(--accent);
-      color: #062216;
-      font-weight: 750;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #041810;
+      font-weight: 900;
       cursor: pointer;
+      box-shadow: 0 16px 28px rgba(72, 213, 151, .16);
     }
-    .primary:disabled { opacity: .55; cursor: wait; }
-    .history { margin-top: 28px; border-top: 1px solid var(--border); padding-top: 20px; }
+    .primary:disabled { opacity: .55; cursor: wait; transform: none; }
+
+    .history {
+      margin-top: 22px;
+      padding-top: 20px;
+    }
+
+    .history-card {
+      max-height: 46vh;
+      overflow: auto;
+      padding: 6px;
+      border: 1px solid rgba(125, 241, 189, .10);
+      border-radius: 18px;
+      background: rgba(8, 16, 18, .72);
+    }
+
     .run-row {
       width: 100%;
-      padding: 12px 0;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px 12px;
+      align-items: center;
+      margin-bottom: 6px;
+      padding: 12px;
       color: var(--text);
       text-align: left;
       background: transparent;
-      border: 0;
-      border-bottom: 1px solid #1d2a2e;
+      border: 1px solid transparent;
+      border-radius: 14px;
       cursor: pointer;
     }
-    .run-row small { display: block; color: var(--muted); }
-    .run-header { display: flex; justify-content: space-between; gap: 20px; align-items: start; }
-    .run-header h1 { margin-bottom: 5px; font-size: 28px; letter-spacing: -.03em; }
-    .state { color: var(--warning); font-weight: 700; }
+    .run-row:hover, .run-row.active {
+      background: rgba(72, 213, 151, .08);
+      border-color: rgba(72, 213, 151, .24);
+    }
+    .run-row small {
+      grid-column: 1 / -1;
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+    .status-badge.succeeded, .status-badge.completed, .status-badge.ready {
+      border-color: rgba(72, 213, 151, .35);
+      color: var(--accent-2);
+      background: rgba(72, 213, 151, .10);
+    }
+    .status-badge.running, .status-badge.queued {
+      border-color: rgba(97, 211, 232, .35);
+      color: var(--cyan);
+      background: rgba(97, 211, 232, .10);
+    }
+    .status-badge.failed, .status-badge.unavailable {
+      border-color: rgba(255, 133, 133, .35);
+      color: var(--danger);
+      background: rgba(255, 133, 133, .10);
+    }
+
+    .run-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: flex-start;
+      padding: 22px;
+      border-radius: 20px;
+    }
+
+    .run-header h1 {
+      margin-bottom: 6px;
+      font-size: clamp(30px, 4vw, 44px);
+      line-height: 1;
+      letter-spacing: -.05em;
+    }
+    .run-meta {
+      margin: 0;
+      color: var(--muted);
+    }
+    .state { color: var(--warning); font-weight: 900; }
+
     .timeline {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 1px;
-      margin: 28px 0 24px;
+      margin: 22px 0;
       overflow: hidden;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--border);
+      border-radius: 18px;
+      background: var(--border-soft);
+      box-shadow: none;
     }
-    .stage { padding: 13px; background: var(--surface); color: var(--muted); }
-    .stage strong { display: block; color: var(--text); font-size: 12px; }
-    .stage.running { box-shadow: inset 0 -2px var(--cyan); }
-    .stage.completed { box-shadow: inset 0 -2px var(--accent); }
-    .tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--border); }
+
+    .stage {
+      min-height: 72px;
+      padding: 14px;
+      background: rgba(17, 29, 33, .96);
+      color: var(--muted);
+      position: relative;
+    }
+    .stage strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--text);
+      font-size: 13px;
+    }
+    .stage::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      background: transparent;
+    }
+    .stage.running::after { background: var(--cyan); }
+    .stage.completed::after { background: var(--accent); }
+    .stage.failed::after { background: var(--danger); }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      margin-top: 4px;
+      padding: 4px;
+      border: 1px solid rgba(125, 241, 189, .10);
+      border-radius: 16px;
+      background: rgba(8, 16, 18, .68);
+    }
+
     .tab {
-      padding: 12px 0;
+      min-width: fit-content;
+      padding: 10px 13px;
       color: var(--muted);
       background: transparent;
-      border: 0;
-      border-bottom: 2px solid transparent;
+      border: 1px solid transparent;
+      border-radius: 12px;
       cursor: pointer;
+      font-weight: 750;
     }
-    .tab.active { color: var(--text); border-bottom-color: var(--accent); }
-    .content { padding-top: 24px; }
+    .tab.active {
+      color: var(--text);
+      border-color: rgba(72, 213, 151, .28);
+      background: rgba(72, 213, 151, .10);
+    }
+
+    .content { padding-top: 22px; }
     .summary {
       display: grid;
-      grid-template-columns: minmax(220px, .7fr) minmax(360px, 1.3fr);
-      gap: 24px;
+      grid-template-columns: minmax(240px, .62fr) minmax(360px, 1.38fr);
+      gap: 20px;
     }
-    .panel { padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-    .metric { font-size: 34px; font-weight: 800; color: var(--accent); }
-    .report { white-space: pre-wrap; color: #cedbd7; }
-    .empty { color: var(--muted); padding: 24px 0; }
+
+    .panel {
+      padding: 22px;
+      border-radius: 20px;
+      box-shadow: none;
+    }
+    .panel h2 {
+      margin-bottom: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .metric {
+      margin: 2px 0 12px;
+      font-size: clamp(30px, 3.4vw, 44px);
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: -.04em;
+      color: var(--accent);
+    }
+    .metric.sell { color: var(--danger); }
+    .metric.pending { color: var(--muted); }
+
+    .report {
+      white-space: pre-wrap;
+      color: #d8e7e3;
+      font-size: 14px;
+    }
+    .empty { color: var(--muted); }
+    .form-note { min-height: 22px; margin: 10px 0 0; font-size: 12px; }
     .error { color: var(--danger); }
+
     footer {
-      height: 32px;
+      min-height: 38px;
       display: flex;
       align-items: center;
-      padding: 0 28px;
-      border-top: 1px solid var(--border);
+      padding: 0 30px;
+      border-top: 1px solid rgba(125, 241, 189, .10);
       color: var(--muted);
-      background: #0d1416;
+      background: rgba(7, 16, 18, .82);
       font-size: 12px;
     }
-    @media (max-width: 900px) {
+
+    @media (max-width: 980px) {
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .status-line { justify-content: flex-start; }
       .shell { grid-template-columns: 1fr; }
-      aside { border-right: 0; border-bottom: 1px solid var(--border); }
+      aside { border-right: 0; border-bottom: 1px solid rgba(125, 241, 189, .10); }
+      .history-card { max-height: 280px; }
       .timeline { grid-template-columns: 1fr; }
       .summary { grid-template-columns: 1fr; }
-      .status-line { display: none; }
+    }
+
+    @media (max-width: 560px) {
+      .topbar, aside, main, footer { padding-left: 16px; padding-right: 16px; }
+      .form-grid, .analyst-grid { grid-template-columns: 1fr; }
+      .run-header { flex-direction: column; }
     }
   </style>
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">TradingAgents Local Research Console</div>
-    <div class="status-line"><span><strong>Local service</strong> ready</span><span><strong id="model-readiness">5090</strong> <span id="model-readiness-detail">checking...</span></span><span>Paper-only boundary</span></div>
+    <div class="brand-stack">
+      <div class="eyebrow">本地研究控制台</div>
+      <div class="brand">TradingAgents 本地多智能体研究台</div>
+      <p class="brand-subtitle">面向个股与 ETF 的本地研究、辩论、交易建议和风控归档。</p>
+    </div>
+    <div class="status-line" aria-label="服务状态">
+      <span class="status-pill"><span class="status-dot"></span><strong>本地服务</strong> 已就绪</span>
+      <span class="status-pill"><strong id="model-readiness">5090</strong><span id="model-readiness-detail">检查中...</span></span>
+      <span class="status-pill">仅研究，交易由工作台风控接管</span>
+    </div>
   </header>
+
   <div class="shell">
     <aside>
-      <h2>New analysis</h2>
-      <form id="run-form">
-        <div class="form-grid">
-          <div><label for="ticker">Ticker</label><input id="ticker" name="ticker" value="AAPL" required></div>
-          <div><label for="analysis_date">Analysis date</label><input id="analysis_date" name="analysis_date" type="date" required></div>
-        </div>
-        <fieldset>
-          <legend>Analysts</legend>
-          <div class="analyst-grid">
-            <label class="analyst-option"><input name="analysts" type="checkbox" value="market" checked>Market</label>
-            <label class="analyst-option"><input name="analysts" type="checkbox" value="social" checked>Sentiment</label>
-            <label class="analyst-option"><input name="analysts" type="checkbox" value="news" checked>News</label>
-            <label class="analyst-option"><input name="analysts" type="checkbox" value="fundamentals" checked>Fundamentals</label>
+      <section class="side-card">
+        <h2 class="section-title">新建分析</h2>
+        <form id="run-form">
+          <div class="form-grid">
+            <div><label for="ticker">股票 / ETF 代码</label><input id="ticker" name="ticker" value="AAPL" required autocomplete="off"></div>
+            <div><label for="analysis_date">分析日期</label><input id="analysis_date" name="analysis_date" type="date" required></div>
           </div>
-        </fieldset>
-        <label for="model_route">Model route</label>
-        <select id="model_route" name="model_route">
-          <option value="local_5090">5090 local OpenAI-compatible</option>
-          <option value="cloud">Cloud provider (manual confirmation)</option>
-        </select>
-        <div class="form-grid">
-          <div><label for="quick_think_llm">Quick model</label><input id="quick_think_llm" name="quick_think_llm" placeholder="Configured default"></div>
-          <div><label for="deep_think_llm">Deep model</label><input id="deep_think_llm" name="deep_think_llm" placeholder="Configured default"></div>
-        </div>
-        <label for="debate_rounds">Debate depth</label>
-        <select id="debate_rounds" name="debate_rounds"><option value="1">1 round</option><option value="2">2 rounds</option><option value="3">3 rounds</option></select>
-        <button class="primary" type="submit">Run analysis</button>
-        <p id="form-status" class="empty"></p>
-      </form>
+
+          <fieldset>
+            <legend>分析师范围</legend>
+            <div class="analyst-grid">
+              <label class="analyst-option"><input name="analysts" type="checkbox" value="market" checked>市场</label>
+              <label class="analyst-option"><input name="analysts" type="checkbox" value="social" checked>情绪</label>
+              <label class="analyst-option"><input name="analysts" type="checkbox" value="news" checked>新闻</label>
+              <label class="analyst-option"><input name="analysts" type="checkbox" value="fundamentals" checked>基本面</label>
+            </div>
+          </fieldset>
+
+          <label for="model_route">模型线路</label>
+          <select id="model_route" name="model_route">
+            <option value="local_5090">本地 5090 OpenAI 兼容服务</option>
+            <option value="cloud">云端模型（需人工确认）</option>
+          </select>
+
+          <div class="form-grid">
+            <div><label for="quick_think_llm">快速模型</label><input id="quick_think_llm" name="quick_think_llm" placeholder="使用配置默认值"></div>
+            <div><label for="deep_think_llm">深度模型</label><input id="deep_think_llm" name="deep_think_llm" placeholder="使用配置默认值"></div>
+          </div>
+
+          <label for="debate_rounds">辩论轮次</label>
+          <select id="debate_rounds" name="debate_rounds"><option value="1">1 轮</option><option value="2">2 轮</option><option value="3">3 轮</option></select>
+          <button class="primary" type="submit">开始分析</button>
+          <p id="form-status" class="form-note empty"></p>
+        </form>
+      </section>
+
       <section class="history">
-        <h2>Recent runs</h2>
-        <div id="run-history" class="empty">No runs yet.</div>
+        <h2 class="section-title">最近运行</h2>
+        <div class="history-card">
+          <div id="run-history" class="empty">暂无运行记录。</div>
+        </div>
       </section>
     </aside>
+
     <main>
       <div class="run-header">
-        <div><h1 id="run-title">Select or create a run</h1><p id="run-subtitle" class="empty">Structured multi-agent research with deterministic execution boundaries.</p></div>
-        <div id="run-state" class="state">Idle</div>
+        <div>
+          <h1 id="run-title">选择或创建一次分析</h1>
+          <p id="run-subtitle" class="run-meta">多智能体研究会在本地执行；券商交易由个人 AI 工作台风控层处理。</p>
+        </div>
+        <div id="run-state" class="status-badge queued">待命</div>
       </div>
+
       <div id="timeline" class="timeline"></div>
-      <nav class="tabs" aria-label="Run reports">
-        <button class="tab active">Overview</button><button class="tab">Analysts</button><button class="tab">Bull vs Bear</button><button class="tab">Trader</button><button class="tab">Risk</button><button class="tab">Final decision</button>
+
+      <nav class="tabs" aria-label="运行报告">
+        <button class="tab active" data-tab="overview">概览</button>
+        <button class="tab" data-tab="analysts">分析师</button>
+        <button class="tab" data-tab="debate">多空辩论</button>
+        <button class="tab" data-tab="trader">交易员</button>
+        <button class="tab" data-tab="risk">风控</button>
+        <button class="tab" data-tab="final">最终决策</button>
       </nav>
+
       <section class="content">
         <div class="summary">
-          <div class="panel"><h2>Final rating</h2><div id="final-rating" class="metric">Pending</div><p id="trader-action" class="empty">Trader action: Pending</p></div>
-          <div class="panel"><h2>Research result</h2><div id="report" class="report empty">Run details will appear here.</div></div>
+          <div class="panel">
+            <h2>最终评级</h2>
+            <div id="final-rating" class="metric pending">等待中</div>
+            <p id="trader-action" class="empty">交易员建议：等待中</p>
+          </div>
+          <div class="panel">
+            <h2>研究结果</h2>
+            <div id="report" class="report empty">运行完成后，这里会显示结构化研究报告。</div>
+          </div>
         </div>
       </section>
     </main>
   </div>
-  <footer>Research only. Broker execution is handled by the Personal AI Workbench safety layer.</footer>
+
+  <footer>仅用于研究与归档。券商执行统一由个人 AI 工作台安全层处理，模型不能直接下单。</footer>
+
   <script>
-    const stageNames = {analysts: "Analysts", research: "Research debate", trader: "Trader", risk: "Risk", portfolio_manager: "Portfolio Manager"};
+    const stageNames = {
+      analysts: "分析师汇总",
+      research: "多空研究辩论",
+      trader: "交易员建议",
+      risk: "风险辩论",
+      portfolio_manager: "组合经理结论"
+    };
+    const statusLabels = {
+      queued: "排队中",
+      running: "运行中",
+      succeeded: "成功",
+      failed: "失败",
+      pending: "等待中",
+      completed: "已完成",
+      ready: "就绪",
+      unavailable: "不可用"
+    };
+    const analystLabels = {
+      market: "市场",
+      social: "情绪",
+      news: "新闻",
+      fundamentals: "基本面"
+    };
+    const routeLabels = {
+      local_5090: "本地 5090",
+      cloud: "云端模型"
+    };
+    const decisionLabels = {
+      Buy: "买入",
+      Sell: "卖出",
+      Hold: "持有",
+      Overweight: "超配",
+      Underweight: "低配",
+      Neutral: "中性",
+      Pending: "等待中"
+    };
+
     let selectedRunId = null;
     let selectedRun = null;
-    let activeTab = "Overview";
+    let activeTab = "overview";
     let localModelReadiness = null;
     const today = new Date().toISOString().slice(0, 10);
     document.querySelector("#analysis_date").value = today;
+
+    function labelStatus(status) {
+      return statusLabels[status] || status || "未知";
+    }
+
+    function labelDecision(value) {
+      if (!value) return decisionLabels.Pending;
+      return decisionLabels[value] || value;
+    }
+
+    function metricTone(value) {
+      const decision = String(value || "").toLowerCase();
+      if (decision.includes("sell") || decision.includes("underweight") || decision.includes("低配") || decision.includes("卖")) return "sell";
+      if (!value || decision.includes("pending") || decision.includes("等待")) return "pending";
+      return "buy";
+    }
+
+    function localizeReadinessMessage(message) {
+      if (!message) return "";
+      if (message.includes("endpoint is ready")) return "配置的 5090 模型端点已就绪。";
+      if (message.includes("offline") || message.includes("unavailable")) return "5090 模型端点不可用，请先恢复本地模型服务。";
+      if (message.includes("did not respond within")) return "5090 模型端点响应超时，请检查服务负载或上下文设置。";
+      if (message.includes("Unable to check")) return "无法检查配置的 5090 模型端点。";
+      return message;
+    }
 
     async function refreshReadiness() {
       try {
@@ -240,27 +629,29 @@
         localModelReadiness = {
           status: "unavailable",
           reachable: false,
-          message: "Unable to check the configured 5090 model endpoint."
+          message: "无法检查配置的 5090 模型端点。"
         };
       }
       const label = document.querySelector("#model-readiness");
       const detail = document.querySelector("#model-readiness-detail");
-      label.textContent = localModelReadiness.status === "ready" ? "5090 ready" : "5090 unavailable";
-      label.style.color = localModelReadiness.status === "ready" ? "var(--accent)" : "var(--danger)";
-      detail.textContent = localModelReadiness.message;
+      const isReady = localModelReadiness.status === "ready";
+      label.textContent = isReady ? "5090 就绪" : "5090 不可用";
+      label.style.color = isReady ? "var(--accent)" : "var(--danger)";
+      detail.textContent = localizeReadinessMessage(localModelReadiness.message);
       return localModelReadiness;
     }
 
     function renderTimeline(progress = {}) {
       const stages = progress.stages || {};
-      document.querySelector("#timeline").innerHTML = Object.entries(stageNames).map(([key, label]) =>
-        `<div class="stage ${stages[key] || "pending"}"><strong>${label}</strong>${stages[key] || "pending"}</div>`
-      ).join("");
+      document.querySelector("#timeline").innerHTML = Object.entries(stageNames).map(([key, label]) => {
+        const status = stages[key] || "pending";
+        return `<div class="stage ${status}"><strong>${label}</strong>${labelStatus(status)}</div>`;
+      }).join("");
     }
 
     function friendlyRunError(run) {
       if (run.error === "Request timed out." && run.request?.model_route === "local_5090") {
-        return "This run timed out before local model readiness checks were added. The configured 5090 endpoint did not respond; restore the 5090 service and start a new run.";
+        return "这次运行发生在本地模型就绪检查加入之前：5090 端点没有及时响应。请恢复 5090 服务后重新创建一次分析。";
       }
       return run.error || "";
     }
@@ -283,27 +674,27 @@
 
     function reportForTab(run, tabName) {
       const reports = run.reports || {};
-      if (tabName === "Analysts") {
+      if (tabName === "analysts") {
         const analystReports = [
-          ["Market", reports.market_report],
-          ["Sentiment", reports.sentiment_report],
-          ["News", reports.news_report],
-          ["Fundamentals", reports.fundamentals_report]
+          ["市场分析", reports.market_report],
+          ["情绪分析", reports.sentiment_report],
+          ["新闻分析", reports.news_report],
+          ["基本面分析", reports.fundamentals_report]
         ].map(([label, value]) => value ? `${label}\n${formatReport(value)}` : "").filter(Boolean).join("\n\n");
         if (analystReports) return analystReports;
         const synthesis = formatReport(reports.investment_debate_state)
           || formatReport(reports.investment_plan);
         return synthesis
-          ? `No standalone analyst reports were persisted. Showing the research synthesis.\n\n${synthesis}`
+          ? `没有单独保存各分析师报告。下面显示研究综合摘要。\n\n${synthesis}`
           : "";
       }
-      if (tabName === "Bull vs Bear") return formatReport(reports.investment_debate_state);
-      if (tabName === "Trader") return formatReport(reports.trader_investment_plan);
-      if (tabName === "Risk") {
+      if (tabName === "debate") return formatReport(reports.investment_debate_state);
+      if (tabName === "trader") return formatReport(reports.trader_investment_plan);
+      if (tabName === "risk") {
         return [reports.risk_debate_state, reports.investment_plan]
           .map(formatReport).filter(Boolean).join("\n\n");
       }
-      if (tabName === "Final decision") return formatReport(run.reports?.final_trade_decision);
+      if (tabName === "final") return formatReport(run.reports?.final_trade_decision);
       return run.result?.portfolio_decision?.investment_thesis
         || formatReport(run.reports?.final_trade_decision)
         || run.result?.risk_notice
@@ -316,7 +707,7 @@
       const runError = friendlyRunError(selectedRun);
       const report = reportForTab(selectedRun, activeTab)
         || runError
-        || (selectedRun.status === "succeeded" ? "Analysis completed." : "Analysis is queued or running.");
+        || (selectedRun.status === "succeeded" ? "分析已完成。" : "分析正在排队或运行中。");
       const reportNode = document.querySelector("#report");
       reportNode.textContent = report;
       reportNode.className = runError ? "report error" : "report";
@@ -325,12 +716,21 @@
     function renderRun(run) {
       selectedRunId = run.run_id;
       selectedRun = run;
+      const analysts = (run.request.analysts || []).map(key => analystLabels[key] || key).join("、");
+      const route = routeLabels[run.request.model_route] || run.request.model_route;
+      const rating = run.result?.portfolio_decision?.rating || "Pending";
+      const action = run.result?.trader_proposal?.action || "Pending";
+      const metricNode = document.querySelector("#final-rating");
+      const stateNode = document.querySelector("#run-state");
+
       document.querySelector("#run-title").textContent = run.request.ticker;
-      document.querySelector("#run-subtitle").textContent = `${run.request.analysis_date} · ${run.request.model_route} · ${run.request.analysts.join(", ")}`;
-      document.querySelector("#run-state").textContent = run.status;
+      document.querySelector("#run-subtitle").textContent = `${run.request.analysis_date} · ${route} · ${analysts || "未选择分析师"}`;
+      stateNode.textContent = labelStatus(run.status);
+      stateNode.className = `status-badge ${run.status}`;
       renderTimeline(run.progress);
-      document.querySelector("#final-rating").textContent = run.result?.portfolio_decision?.rating || "Pending";
-      document.querySelector("#trader-action").textContent = `Trader action: ${run.result?.trader_proposal?.action || "Pending"}`;
+      metricNode.textContent = labelDecision(rating);
+      metricNode.className = `metric ${metricTone(rating)}`;
+      document.querySelector("#trader-action").textContent = `交易员建议：${labelDecision(action)}`;
       renderActiveReport();
     }
 
@@ -338,12 +738,15 @@
       const response = await fetch("/api/v1/runs");
       const {runs} = await response.json();
       const history = document.querySelector("#run-history");
-      history.innerHTML = runs.length ? runs.map(run =>
-        `<button class="run-row" data-run-id="${run.run_id}"><strong>${run.request.ticker}</strong><small>${run.status} · ${run.request.analysis_date}</small></button>`
-      ).join("") : "No runs yet.";
+      history.innerHTML = runs.length ? runs.map(run => {
+        const activeClass = run.run_id === selectedRunId ? " active" : "";
+        const route = routeLabels[run.request.model_route] || run.request.model_route;
+        return `<button class="run-row${activeClass}" data-run-id="${run.run_id}"><strong>${run.request.ticker}</strong><span class="status-badge ${run.status}">${labelStatus(run.status)}</span><small>${run.request.analysis_date} · ${route}</small></button>`;
+      }).join("") : "暂无运行记录。";
       history.querySelectorAll("[data-run-id]").forEach(button => button.addEventListener("click", async () => {
         const detail = await fetch(`/api/v1/runs/${button.dataset.runId}`);
         renderRun(await detail.json());
+        await refreshRuns();
       }));
       if (selectedRunId) {
         const selected = runs.find(run => run.run_id === selectedRunId);
@@ -359,7 +762,7 @@
       if (route === "local_5090") {
         const readiness = await refreshReadiness();
         if (readiness.status !== "ready") {
-          document.querySelector("#form-status").textContent = readiness.message;
+          document.querySelector("#form-status").textContent = localizeReadinessMessage(readiness.message);
           submit.disabled = false;
           return;
         }
@@ -372,19 +775,19 @@
         quick_think_llm: document.querySelector("#quick_think_llm").value,
         deep_think_llm: document.querySelector("#deep_think_llm").value,
         debate_rounds: Number(document.querySelector("#debate_rounds").value),
-        cloud_confirmed: route === "cloud" ? window.confirm("This sends public research context to the selected cloud model. Continue?") : false
+        cloud_confirmed: route === "cloud" ? window.confirm("这会把公开研究上下文发送给你选择的云端模型。确认继续？") : false
       };
       if (route === "cloud" && !payload.cloud_confirmed) { submit.disabled = false; return; }
       const response = await fetch("/api/v1/runs", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)});
       const body = await response.json();
-      document.querySelector("#form-status").textContent = response.ok ? "Run queued." : (body.detail || "Unable to create run.");
+      document.querySelector("#form-status").textContent = response.ok ? "分析任务已加入队列。" : (body.detail || "无法创建分析任务。");
       if (response.ok) renderRun(body);
       submit.disabled = false;
       await refreshRuns();
     });
 
     document.querySelectorAll(".tab").forEach(button => button.addEventListener("click", () => {
-      activeTab = button.textContent.trim();
+      activeTab = button.dataset.tab;
       document.querySelectorAll(".tab").forEach(tab => tab.classList.toggle("active", tab === button));
       renderActiveReport();
     }));
