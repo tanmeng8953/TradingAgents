@@ -1,8 +1,9 @@
 import csv
 import io
+from typing import Annotated
 
 from langchain_core.tools import tool
-from typing import Annotated
+
 from tradingagents.dataflows.config import get_config
 from tradingagents.dataflows.interface import route_to_vendor
 
@@ -53,9 +54,57 @@ def _limit_statement(
     ).strip()
 
 
+def _summarize_statement(
+    payload: str,
+    max_rows: int | None,
+    max_periods: int | None,
+) -> str:
+    sample_rows = max_rows if max_rows and max_rows > 0 else 12
+    sample_periods = max_periods if max_periods and max_periods > 0 else 3
+    lines = payload.splitlines()
+    try:
+        header_index = next(
+            index for index, line in enumerate(lines) if line.startswith(",")
+        )
+    except StopIteration:
+        return _limit_statement(payload, sample_rows, sample_periods)
+
+    table = list(csv.reader(io.StringIO("\n".join(lines[header_index:]))))
+    if len(table) < 2:
+        return _limit_statement(payload, sample_rows, sample_periods)
+
+    header = table[0]
+    periods = header[1:]
+    metrics = table[1:]
+    summary = [
+        (
+            "# Full financial statement summary generated from all "
+            f"{len(metrics)} metrics across all {len(periods)} periods before "
+            "prompt compaction."
+        ),
+        (
+            f"# Period range: {periods[0] if periods else 'n/a'} to "
+            f"{periods[-1] if periods else 'n/a'}"
+        ),
+    ]
+    return "\n".join(
+        [
+            *summary,
+            "",
+            _limit_statement(payload, sample_rows, sample_periods),
+        ]
+    ).strip()
+
+
 def _statement_result(method: str, ticker: str, freq: str, curr_date: str) -> str:
     payload = route_to_vendor(method, ticker, freq, curr_date)
     config = get_config()
+    if config.get("full_data_summary_mode"):
+        return _summarize_statement(
+            payload,
+            config.get("fundamental_statement_output_rows"),
+            config.get("fundamental_statement_output_periods"),
+        )
     return _limit_statement(
         payload,
         config.get("fundamental_statement_output_rows"),

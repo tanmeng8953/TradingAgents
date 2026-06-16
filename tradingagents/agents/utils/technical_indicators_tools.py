@@ -1,12 +1,29 @@
 import re
+from typing import Annotated
 
 from langchain_core.tools import tool
-from typing import Annotated
+
 from tradingagents.dataflows.config import get_config
 from tradingagents.dataflows.interface import route_to_vendor
 
-
 _DATED_VALUE = re.compile(r"^\d{4}-\d{2}-\d{2}:")
+_NUMERIC_VALUE = re.compile(r"-?\d+(?:,\d{3})*(?:\.\d+)?")
+
+
+def _as_float(value: str) -> float | None:
+    match = _NUMERIC_VALUE.search(value)
+    if not match:
+        return None
+    try:
+        return float(match.group(0).replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _format_number(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:.2f}".rstrip("0").rstrip(".")
 
 
 def _limit_indicator_values(payload: str, max_rows: int | None) -> str:
@@ -34,6 +51,65 @@ def _limit_indicator_values(payload: str, max_rows: int | None) -> str:
             *recent,
         ]
     ).strip()
+
+
+def _summarize_indicator_values(payload: str, max_rows: int | None) -> str:
+    sample_rows = max_rows if max_rows and max_rows > 0 else 3
+    lines = payload.splitlines()
+    dated_lines = [line for line in lines if _DATED_VALUE.match(line)]
+    if not dated_lines:
+        return _limit_indicator_values(payload, sample_rows)
+
+    first_data_index = next(
+        index for index, line in enumerate(lines) if _DATED_VALUE.match(line)
+    )
+    prefix = "\n".join(lines[:first_data_index]).rstrip()
+    entries = []
+    for line in dated_lines:
+        date, value = line.split(":", 1)
+        entries.append(
+            {
+                "date": date,
+                "line": line,
+                "value": _as_float(value),
+            }
+        )
+    chronological = sorted(entries, key=lambda item: item["date"])
+    oldest = chronological[0]
+    latest = chronological[-1]
+    latest_value = latest["value"]
+    oldest_value = oldest["value"]
+    full_change = None
+    if latest_value is not None and oldest_value is not None:
+        full_change = latest_value - oldest_value
+
+    recent = [
+        entry["line"]
+        for entry in sorted(entries, key=lambda item: item["date"], reverse=True)[
+            :sample_rows
+        ]
+    ]
+    blocks = []
+    if prefix:
+        blocks.extend([prefix, ""])
+    blocks.extend(
+        [
+            (
+                "# Full indicator summary generated from all "
+                f"{len(dated_lines)} dated values before prompt compaction."
+            ),
+            f"# Date range: {oldest['date']} to {latest['date']}",
+            f"# Latest value: {_format_number(latest_value)}",
+            f"# Change over full series: {_format_number(full_change)}",
+            "",
+            (
+                f"# Showing the {min(sample_rows, len(dated_lines))} most recent "
+                f"values out of {len(dated_lines)} to fit the configured model context."
+            ),
+            *recent,
+        ]
+    )
+    return "\n".join(blocks).strip()
 
 
 @tool
@@ -67,10 +143,17 @@ def get_indicators(
                 curr_date,
                 look_back_days,
             )
+            config = get_config()
+            max_rows = config.get("indicator_output_rows")
             results.append(
-                _limit_indicator_values(
+                _summarize_indicator_values(
                     payload,
-                    get_config().get("indicator_output_rows"),
+                    max_rows,
+                )
+                if config.get("full_data_summary_mode")
+                else _limit_indicator_values(
+                    payload,
+                    max_rows,
                 )
             )
         except ValueError as e:

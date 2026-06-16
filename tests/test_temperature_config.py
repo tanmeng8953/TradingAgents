@@ -60,11 +60,15 @@ class TestTemperatureEnvOverlay:
 class TestProviderKwargsTemperature:
     """_get_provider_kwargs float-coerces and forwards temperature, or omits it."""
 
-    def _kwargs_for(self, temperature):
+    def _kwargs_for(self, temperature=None, max_tokens=None):
         from tradingagents.graph.trading_graph import TradingAgentsGraph
         # Call the method without constructing the full graph.
         graph = TradingAgentsGraph.__new__(TradingAgentsGraph)
-        graph.config = {"llm_provider": "openai", "temperature": temperature}
+        graph.config = {
+            "llm_provider": "openai",
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
         return TradingAgentsGraph._get_provider_kwargs(graph)
 
     def test_float_string_coerced(self):
@@ -78,3 +82,6 @@ class TestProviderKwargsTemperature:
 
     def test_empty_string_omitted(self):
         assert "temperature" not in self._kwargs_for("")
+
+    def test_max_tokens_forwarded(self):
+        assert self._kwargs_for(max_tokens=1024)["max_tokens"] == 1024

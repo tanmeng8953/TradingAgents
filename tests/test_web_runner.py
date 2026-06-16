@@ -278,3 +278,8 @@ def test_local_analysis_limits_stock_rows_for_8192_context_model(
     assert captured["config"]["fundamental_statement_output_rows"] == 12
     assert captured["config"]["fundamental_statement_output_periods"] == 3
     assert captured["config"]["compact_prompts"] is True
+    assert captured["config"]["full_data_summary_mode"] is True
+    assert captured["config"]["prefetch_analyst_data"] is True
+    assert captured["config"]["prefetch_data_block_char_limit"] == 1600
+    assert captured["config"]["checkpoint_enabled"] is False
+    assert captured["config"].get("max_tokens") is None

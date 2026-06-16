@@ -266,6 +266,10 @@ class TradingAgentsAnalysisEngine:
             config["fundamental_statement_output_rows"] = 12
             config["fundamental_statement_output_periods"] = 3
             config["compact_prompts"] = True
+            config["full_data_summary_mode"] = True
+            config["prefetch_analyst_data"] = True
+            config["prefetch_data_block_char_limit"] = 1600
+            config["checkpoint_enabled"] = False
         else:
             config["quick_think_llm"] = (
                 request.get("quick_think_llm") or config["quick_think_llm"]
@@ -276,7 +280,8 @@ class TradingAgentsAnalysisEngine:
         config["max_debate_rounds"] = int(request.get("debate_rounds", 1))
         config["max_risk_discuss_rounds"] = int(request.get("debate_rounds", 1))
         config["output_language"] = request.get("output_language") or "Chinese"
-        config["checkpoint_enabled"] = bool(request.get("checkpoint_enabled", True))
+        if route != "local_5090":
+            config["checkpoint_enabled"] = bool(request.get("checkpoint_enabled", True))
         config["results_dir"] = str(self.output_dir / "logs")
         config["data_cache_dir"] = str(self.output_dir / "cache")
         config["memory_log_path"] = str(self.output_dir / "memory" / "trading_memory.md")

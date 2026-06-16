@@ -1,7 +1,12 @@
+from datetime import datetime, timedelta
+
+from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+from tradingagents.agents.analysts.prefetch import call_tool, invoke_report, truncate_block
 from tradingagents.agents.utils.agent_utils import (
-    get_instrument_context_from_state,
     get_indicators,
+    get_instrument_context_from_state,
     get_language_instruction,
     get_stock_data,
     get_verified_market_snapshot,
@@ -25,7 +30,91 @@ def create_market_analyst(llm):
 
     def market_analyst_node(state):
         current_date = state["trade_date"]
+        ticker = state["company_of_interest"]
         instrument_context = get_instrument_context_from_state(state)
+        config = get_config()
+
+        if config.get("prefetch_analyst_data"):
+            max_chars = int(config.get("prefetch_data_block_char_limit") or 2000)
+            price_lookback_days = int(config.get("prefetch_price_lookback_days") or 1500)
+            indicator_lookback_days = int(
+                config.get("prefetch_indicator_lookback_days") or 365
+            )
+            start_date = (
+                datetime.strptime(current_date, "%Y-%m-%d")
+                - timedelta(days=price_lookback_days)
+            ).strftime("%Y-%m-%d")
+            indicators = [
+                "close_50_sma",
+                "close_200_sma",
+                "macd",
+                "rsi",
+                "boll",
+                "atr",
+            ]
+            price_block = truncate_block(
+                "price data",
+                call_tool(get_stock_data, "price data", ticker, start_date, current_date),
+                max_chars,
+            )
+            indicator_block = truncate_block(
+                "technical indicators",
+                "\n\n".join(
+                    call_tool(
+                        get_indicators,
+                        f"{indicator} indicator",
+                        ticker,
+                        indicator,
+                        current_date,
+                        indicator_lookback_days,
+                    )
+                    for indicator in indicators
+                ),
+                max_chars,
+            )
+            snapshot_block = truncate_block(
+                "verified market snapshot",
+                call_tool(
+                    get_verified_market_snapshot,
+                    "verified market snapshot",
+                    ticker,
+                    current_date,
+                    30,
+                ),
+                max_chars,
+            )
+            system_message = _build_prefetched_market_system_message(
+                ticker=ticker,
+                start_date=start_date,
+                current_date=current_date,
+                price_block=price_block,
+                indicator_block=indicator_block,
+                snapshot_block=snapshot_block,
+            )
+            prompt = ChatPromptTemplate.from_messages(
+                [
+                    (
+                        "system",
+                        "You are a technical market analyst. The data below has "
+                        "already been collected and compacted locally; do not call "
+                        "tools. Write a concise, evidence-grounded trend report and "
+                        "end with a Markdown table of key evidence.\n{system_message}"
+                        "For your reference, the current date is {current_date}. "
+                        "{instrument_context}",
+                    ),
+                    MessagesPlaceholder(variable_name="messages"),
+                ]
+            )
+            formatted_messages = prompt.partial(
+                system_message=system_message,
+                current_date=current_date,
+                instrument_context=instrument_context,
+            ).format_messages(messages=state["messages"])
+            report = invoke_report(llm, formatted_messages)
+            return {
+                "messages": [AIMessage(content=report)],
+                "market_report": report,
+            }
 
         tools = [
             get_stock_data,
@@ -106,3 +195,27 @@ Write a very detailed and nuanced report of the trends you observe. Provide spec
         }
 
     return market_analyst_node
+
+
+def _build_prefetched_market_system_message(
+    *,
+    ticker: str,
+    start_date: str,
+    current_date: str,
+    price_block: str,
+    indicator_block: str,
+    snapshot_block: str,
+) -> str:
+    return (
+        f"Analyze {ticker} market action from {start_date} to {current_date}.\n\n"
+        "## Full price-data summary and recent sample\n"
+        f"{price_block}\n\n"
+        "## Technical indicator summaries\n"
+        f"{indicator_block}\n\n"
+        "## Verified market snapshot\n"
+        f"{snapshot_block}\n\n"
+        "Use the verified snapshot as the source of truth for exact prices and "
+        "indicator values. If blocks conflict, flag the conflict instead of "
+        "inventing a reconciled number."
+        + get_language_instruction()
+    )

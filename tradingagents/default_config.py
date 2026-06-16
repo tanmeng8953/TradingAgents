@@ -97,6 +97,15 @@ DEFAULT_CONFIG = _apply_env_overrides({
     "fundamental_statement_output_periods": None,
     # Use shorter agent instructions for local models with small context windows.
     "compact_prompts": False,
+    # When enabled, tools analyze the full local dataset and return a bounded
+    # summary plus recent samples instead of sending raw full tables to the LLM.
+    "full_data_summary_mode": False,
+    # Local models with weak tool-calling support can pre-fetch analyst data
+    # into bounded prompt blocks, avoiding model-generated tool-call JSON.
+    "prefetch_analyst_data": False,
+    "prefetch_price_lookback_days": 1500,
+    "prefetch_indicator_lookback_days": 365,
+    "prefetch_data_block_char_limit": 2000,
     # Search queries used by get_global_news for macro headlines. Extend or
     # replace to broaden geographic / sector coverage.
     "global_news_queries": [

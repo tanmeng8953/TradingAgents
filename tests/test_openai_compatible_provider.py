@@ -4,7 +4,6 @@ Verifies the user-supplied base_url is required and honored, the key is optional
 (keyless local default), Chat Completions (not the Responses API) is used, any
 model name is accepted, and the env backend URL precedence (#978).
 """
-import os
 
 import pytest
 
@@ -54,6 +53,19 @@ def test_optional_key_from_env(monkeypatch):
     ).get_llm()
     key = llm.openai_api_key.get_secret_value() if hasattr(llm.openai_api_key, "get_secret_value") else llm.openai_api_key
     assert key == "sk-relay-123"
+
+
+@pytest.mark.unit
+def test_openai_compatible_forwards_max_tokens(monkeypatch):
+    monkeypatch.delenv("OPENAI_COMPATIBLE_API_KEY", raising=False)
+    llm = create_llm_client(
+        provider="openai_compatible",
+        model="qwen-local",
+        base_url="http://localhost:8000/v1",
+        max_tokens=123,
+    ).get_llm()
+
+    assert llm.max_tokens == 123
 
 
 @pytest.mark.unit
