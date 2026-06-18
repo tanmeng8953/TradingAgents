@@ -425,6 +425,49 @@
     .form-note { min-height: 22px; margin: 10px 0 0; font-size: 12px; }
     .error { color: var(--danger); }
 
+    .workbench-widget {
+      margin: 0 0 18px;
+      padding: 18px;
+      border: 1px solid rgba(125, 241, 189, .14);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(18, 31, 35, .92), rgba(13, 23, 26, .92));
+      box-shadow: var(--shadow);
+    }
+    .workbench-widget header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    .workbench-widget h2 {
+      margin: 0 0 4px;
+      color: var(--text);
+      font-size: 16px;
+    }
+    .workbench-widget p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .workbench-widget .widget-badge {
+      flex: 0 0 auto;
+      padding: 5px 9px;
+      border: 1px solid rgba(72, 213, 151, .28);
+      border-radius: 999px;
+      color: var(--accent-2);
+      background: rgba(72, 213, 151, .08);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .workbench-widget iframe {
+      width: 100%;
+      height: 300px;
+      border: 1px solid rgba(125, 241, 189, .13);
+      border-radius: 14px;
+      background: white;
+    }
+
     footer {
       min-height: 38px;
       display: flex;
@@ -523,6 +566,17 @@
       </div>
 
       <div id="timeline" class="timeline"></div>
+
+      <section class="workbench-widget" aria-label="自选股票实时价格">
+        <header>
+          <div>
+            <h2>自选股票实时价格</h2>
+            <p>research_only 行情只进入研究上下文，不连接真实券商，不会真实下单。</p>
+          </div>
+          <span class="widget-badge">local crawler</span>
+        </header>
+        <iframe title="TradingAgents 自选股票实时价格" src="http://127.0.0.1:8765/workbench/crawler-widget/trading"></iframe>
+      </section>
 
       <nav class="tabs" aria-label="运行报告">
         <button class="tab active" data-tab="overview">概览</button>
